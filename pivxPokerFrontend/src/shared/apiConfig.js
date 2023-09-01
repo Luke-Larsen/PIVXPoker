@@ -1,12 +1,12 @@
 const apiConfig = {
   currentEnv: 'dev',
-  prod: 'http://127.0.0.1:7777/api',
+  prod: 'https://mainnet.pivx.poker/api',
   staging: '',
-  dev: 'http://127.0.0.1:7777/api',
+  dev: 'https://mainnet.pivx.poker/api',
   // endPoint: 'ws://mainnet.pivx.poker',
-  endPoint: 'http://127.0.0.1:7777',
-  api: 'http://127.0.0.1:7777',
-  app: 'http://127.0.0.1:7777',
+  endPoint: 'https://mainnet.pivx.poker',
+  api: 'https://mainnet.pivx.poker',
+  app: 'https://mainnet.pivx.poker',
 
   signUp: { url: '/signup', method: 'post' },
   authenticate: { url: '/authenticate', method: 'post' },

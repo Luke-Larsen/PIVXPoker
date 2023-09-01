@@ -52,12 +52,15 @@ WALLET_USER=
 WALLET_PASSWORD=
 JWT_SECRET=
 DISCORD_WEBHOOK_NEWGAME=
+DNS_APP_URL=
 ```
 
 The Discord Webhook env format is `ID:TOKEN`, for example (with a fake ID:Token pair):
 `DISCORD_WEBHOOK_NEWGAME=9127598635710559730:0OduM5blLjRS309zzz4pQhINBFhTd-16VDzqrUS5JlqHth7cWRI5Q7uvyCzApXzhT47Y`
 
 If omitted, the Discord Webhook will simply be disabled.
+
+To properly link to the new game you also need to set the DNS_APP_URL to the correct base dns for your website
 
 ---
 
