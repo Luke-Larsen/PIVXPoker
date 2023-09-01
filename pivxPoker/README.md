@@ -64,6 +64,14 @@ To properly link to the new game you also need to set the DNS_APP_URL to the cor
 
 ---
 
+remember when using a reverse proxy to enable websockets for example with nginx:
+```
+      # WebSocket support
+      proxy_http_version 1.1;
+      proxy_set_header Upgrade $http_upgrade;
+      proxy_set_header Connection "upgrade";
+```
+
 I recommend the latest version of node
 
 # Running it
