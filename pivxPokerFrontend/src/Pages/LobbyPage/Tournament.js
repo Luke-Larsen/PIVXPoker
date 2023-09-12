@@ -3,6 +3,7 @@ import { connect } from "react-redux";
 import { useEffect, useState } from "react";
 import { AiOutlineArrowUp, AiOutlineArrowDown } from "react-icons/ai";
 import Button from "../../Components/Button";
+import handleToast, { success } from "../../Components/toast";
 
 import * as lobbyAction from "../../store/actions/lobby.action";
 import LobbySmallTabButton from "../../StyledComponents/LobbySmallTabButton";
@@ -144,7 +145,7 @@ const LobbyPage = (props) => {
   }, [sort]);
   const openTournament = (item) => {
     console.log(item, props);
-    props.history.push("/tournament_details");
+    handleToast("Work in progress not ready yet")
   };
   return (
     <div className="lobby">
@@ -166,21 +167,21 @@ const LobbyPage = (props) => {
           ))}
         </div>
         {
-        //   tableItems.map((item, i) => (
-        //   <div
-        //     className=" table-row body-row"
-        //     onClick={(e) => openTournament(item)}
-        //     key={i}
-        //   >
-        //     {item.map((text, i) => (
-        //       <div className="tabel-item ml-4" key={i}>
-        //         {text}
-        //       </div>
-        //     ))}
-        //   </div>
-        // ))
+          tableItems.map((item, i) => (
+          <div
+            className=" table-row body-row"
+            onClick={(e) => openTournament(item)}
+            key={i}
+          >
+            {item.map((text, i) => (
+              <div className="tabel-item ml-4" key={i}>
+                {text}
+              </div>
+            ))}
+          </div>
+        ))
       }
-      Coming Soon
+      Work in progress
         <hr />
       <div style={{textAlign:'center'}}>
       </div>

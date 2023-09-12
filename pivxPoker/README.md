@@ -72,7 +72,9 @@ remember when using a reverse proxy to enable websockets for example with nginx:
       proxy_set_header Connection "upgrade";
 ```
 
-I recommend the latest version of node
+I recommend the latest version of node v20.x at the time of writing
+
+The only vulnerabilities left do not effect anything for the time being and will be fixed later
 
 # Running it
 ## development
