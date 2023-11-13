@@ -37,8 +37,10 @@ https://github.com/nodesource/distributions/blob/master/README.md
 sudo apt-get install build-essential
 sudo apt install node-pre-gyp
 ```
-`npm i`
-If you have issues purge the package-lock and try again
+`npm i` 
+If you have issues purge the package-lock and any node_modules you have and try again
+switching node versions OSes or anything else can cause a number of issues with node-gyp building
+nodejs 19 with node-gyp compiles on debian. Each OS and version of node could have diffrent issues and at the moment I don't have the time to support every platform
 
 Once you pivx Daemon syncs restart it so that it is using the settings from the config file
 

@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const User = require('../models/user');
-const SitGame = require('../models/sitGame');
+const TournamentGame = require('../models/tournamentGame');
 const constants = require('../utils/constants');
 const { generateServerSeed, sha256, generateCards } = require('../utils/fair');
 const Card = require('../utils/cards');
@@ -44,23 +44,23 @@ function valueCompare(top, player){
 
 
 
-function allowedBet(sitGame, position) {
-  const players = sitGame.players;
+function allowedBet(TournamentGame, position) {
+  const players = TournamentGame.players;
   let minRaise, maxRaise, call, status;
-  if (!sitGame.limit) {
-    minRaise = sitGame.bet + sitGame.raise;
-    minRaise=minRaise!=0 ? minRaise : (sitGame.blinds==2 ? 5 : sitGame.blinds*2);
+  if (!TournamentGame.limit) {
+    minRaise = TournamentGame.bet + TournamentGame.raise;
+    minRaise=minRaise!=0 ? minRaise : (TournamentGame.blinds==2 ? 5 : TournamentGame.blinds*2);
     maxRaise = players[position].balance + players[position].bet;
   } else {
-    minRaise = sitGame.bet * 2 - players[position].bet;
-    minRaise=minRaise!=0 ? minRaise : (sitGame.blinds==2 ? 5 : sitGame.blinds*2);
+    minRaise = TournamentGame.bet * 2 - players[position].bet;
+    minRaise=minRaise!=0 ? minRaise : (TournamentGame.blinds==2 ? 5 : TournamentGame.blinds*2);
     maxRaise =
-      sitGame.pot +
+      TournamentGame.pot +
       players.reduce((total, ele) => total + ele.bet) +
-      2 * sitGame.bet -
+      2 * TournamentGame.bet -
       players[position].bet;
   }
-  if (sitGame.bet >= players[position].balance + players[position].bet) {
+  if (TournamentGame.bet >= players[position].balance + players[position].bet) {
     //allIn only
     call = players[position].balance + players[position].bet;
     status = 'allIn';
@@ -69,20 +69,20 @@ function allowedBet(sitGame, position) {
   } else if (minRaise >= players[position].balance + players[position].bet) {
     status = 'allIn_minRaise';
     minRaise = players[position].balance + players[position].bet;
-    minRaise=minRaise!=0 ? minRaise : (sitGame.blinds==2 ? 5 : sitGame.blinds*2);
-    call = sitGame.bet;
+    minRaise=minRaise!=0 ? minRaise : (TournamentGame.blinds==2 ? 5 : TournamentGame.blinds*2);
+    call = TournamentGame.bet;
     maxRaise = players[position].balance + players[position].bet;
   } else if (maxRaise >= players[position].balance + players[position].bet) {
     status = 'allIn_maxRaise';
     minRaise = minRaise;
-    minRaise=minRaise!=0 ? minRaise : (sitGame.blinds==2 ? 5 : sitGame.blinds*2);
-    call = sitGame.bet;
+    minRaise=minRaise!=0 ? minRaise : (TournamentGame.blinds==2 ? 5 : TournamentGame.blinds*2);
+    call = TournamentGame.bet;
     maxRaise = players[position].balance + players[position].bet;
   } else {
     status = 'allIn_no';
     minRaise = minRaise;
-    minRaise=minRaise!=0 ? minRaise : (sitGame.blinds==2 ? 5 : sitGame.blinds*2);
-    call = sitGame.bet;
+    minRaise=minRaise!=0 ? minRaise : (TournamentGame.blinds==2 ? 5 : TournamentGame.blinds*2);
+    call = TournamentGame.bet;
     maxRaise = maxRaise;
   }
   return {
@@ -106,9 +106,9 @@ function createValidation(data) {
   return true;
 }
 
-function filterTableToShow(sitGame, socket, open = false) {
+function filterTableToShow(TournamentGame, socket, open = false) {
   //filter table data to show to the players
-  const data = { ...sitGame, playTimeOut: null, blindTimeOut: null };
+  const data = { ...TournamentGame, playTimeOut: null, blindTimeOut: null };
   data.players = data.players.map((ele) => {
     if (open) {
       if (ele != null) {
@@ -142,9 +142,9 @@ function filterTableToShow(sitGame, socket, open = false) {
   return data;
 }
 
-function filterTableForLobby(sitGames) {
+function filterTableForLobby(TournamentGames) {
   //filter table to show in the lobby
-  const filteredGames = sitGames.map((ele) => {
+  const filteredGames = TournamentGames.map((ele) => {
     const item = {};
     item.id = ele.id;
     item.name = ele.name;
@@ -166,17 +166,17 @@ function filterTableForLobby(sitGames) {
   return filteredGames;
 }
 
-function getNextPlayer(sitGame, position, stop = true) {
+function getNextPlayer(TournamentGame, position, stop = true) {
   //dealer==false => players.bet==game.bet->nextRound
   //true=> get newPostion
-  let players = sitGame.players;
+  let players = TournamentGame.players;
   let newPosition = -1;
   for (let i = 1; i < players.length; i++) {
     const nextPlayer = players[(i + position) % players.length];
 
-    if ((i + position) % players.length == sitGame.dealerNext && stop) sitGame.dealerPassed = true;
-    if ((i + position) % players.length == sitGame.bigBlindNext && stop)
-      sitGame.bigBlindPassed = true;
+    if ((i + position) % players.length == TournamentGame.dealerNext && stop) TournamentGame.dealerPassed = true;
+    if ((i + position) % players.length == TournamentGame.bigBlindNext && stop)
+      TournamentGame.bigBlindPassed = true;
     if (
       nextPlayer == null ||
       nextPlayer.allIn ||
@@ -186,17 +186,17 @@ function getNextPlayer(sitGame, position, stop = true) {
     )
       continue;
     if (
-      nextPlayer.bet == sitGame.bet &&
-      sitGame.bigBlindPassed &&
-      sitGame.tableCards.length < 2 &&
+      nextPlayer.bet == TournamentGame.bet &&
+      TournamentGame.bigBlindPassed &&
+      TournamentGame.tableCards.length < 2 &&
       stop
     ) {
       newPosition = -1;
       break;
     } else if (
-      nextPlayer.bet == sitGame.bet &&
-      sitGame.dealerPassed &&
-      sitGame.tableCards.length > 2 &&
+      nextPlayer.bet == TournamentGame.bet &&
+      TournamentGame.dealerPassed &&
+      TournamentGame.tableCards.length > 2 &&
       stop
     ) {
       newPosition = -1;
@@ -209,30 +209,30 @@ function getNextPlayer(sitGame, position, stop = true) {
   return newPosition;
 }
 
-function sharePlayerCards(sitGame) {
-  if (!sitGame.cardNo) sitGame.cardNo = 0;
-  for (let i = 0; i < sitGame.players.length; i++) {
-    if (sitGame.players[i] == null) continue;
-    sitGame.players[i].cards = [sitGame.cards[sitGame.cardNo], sitGame.cards[sitGame.cardNo + 1]];
-    sitGame.cardNo += 2;
+function sharePlayerCards(TournamentGame) {
+  if (!TournamentGame.cardNo) TournamentGame.cardNo = 0;
+  for (let i = 0; i < TournamentGame.players.length; i++) {
+    if (TournamentGame.players[i] == null) continue;
+    TournamentGame.players[i].cards = [TournamentGame.cards[TournamentGame.cardNo], TournamentGame.cards[TournamentGame.cardNo + 1]];
+    TournamentGame.cardNo += 2;
   }
 }
 
-module.exports = (io, socket, sitGames) => {
-  async function removeSitGame(id) {
+module.exports = (io, socket, TournamentGames) => {
+  async function removeTournamentGame(id) {
     console.log('remove game');
     //TimeOut and remove game
-    const index = sitGames.findIndex((ele) => (ele.id = id));
-    const sitGame = sitGames[index];
-    clearTimeout(sitGame.playTimeOut);
-    clearTimeout(sitGame.blindTimeOut);
-    for (let i = 0; i < sitGame.players.length; i++) {
-      const player = sitGame.players[i];
+    const index = TournamentGames.findIndex((ele) => (ele.id = id));
+    const TournamentGame = TournamentGames[index];
+    clearTimeout(TournamentGame.playTimeOut);
+    clearTimeout(TournamentGame.blindTimeOut);
+    for (let i = 0; i < TournamentGame.players.length; i++) {
+      const player = TournamentGame.players[i];
       if (player != null) {
         try {
           const user=await User.findByIdAndUpdate(player.user.id, {
             $inc: {
-              pivx: sitGame.buyIn
+              pivx: TournamentGame.buyIn
             }
           },{new:true});
         } catch (e) {
@@ -240,24 +240,24 @@ module.exports = (io, socket, sitGames) => {
         }
       }
     }
-    const sitGameDB = await SitGame.findById(sitGame.id);
-    sitGameDB.closed = true;
-    await sitGameDB.save();
-    sitGames.splice(index, 1);
+    const TournamentGameDB = await TournamentGame.findById(TournamentGame.id);
+    TournamentGameDB.closed = true;
+    await TournamentGameDB.save();
+    TournamentGames.splice(index, 1);
     io.emit('sit:lobby', {
-      sitGames: filterTableForLobby(sitGames)
+      TournamentGames: filterTableForLobby(TournamentGames)
     });
-    io.to(sitGame.roomId).emit('sit:closed');
+    io.to(TournamentGame.roomId).emit('sit:closed');
   }
-  function calcResult(sitGame) {
+  function calcResult(TournamentGame) {
     //written words in the table - player won xx chips with xxxxx
     let winner='', result='';
     //init
-    for (let i = 0; i < sitGame.players.length; i++) {
-      const player = sitGame.players[i];
+    for (let i = 0; i < TournamentGame.players.length; i++) {
+      const player = TournamentGame.players[i];
       if (player != null) {
         player.turn = false;
-        sitGame.pot += player.bet;
+        TournamentGame.pot += player.bet;
         player.totalBet += player.bet;
         player.bet = 0;
         player.behavior = false;
@@ -265,18 +265,18 @@ module.exports = (io, socket, sitGames) => {
       }
     }
 
-    io.to(sitGame.roomId).emit('sit:open', filterTableToShow(sitGame, null, true));
+    io.to(TournamentGame.roomId).emit('sit:open', filterTableToShow(TournamentGame, null, true));
     //compare the result
-    let players = sitGame.players;
+    let players = TournamentGame.players;
     const top = { rank: 0, value: 0, value2: 0, value3: 0, value4: 0, value5: 0, index: [] };
     for (let i = 0; i < players.length; i++) {
       if (players[i] == null || players[i].stand || players[i].fold) continue;
       const hands = [];
-      hands.push(new Card(sitGame.tableCards[0]));
-      hands.push(new Card(sitGame.tableCards[1]));
-      hands.push(new Card(sitGame.tableCards[2]));
-      hands.push(new Card(sitGame.tableCards[3]));
-      hands.push(new Card(sitGame.tableCards[4]));
+      hands.push(new Card(TournamentGame.tableCards[0]));
+      hands.push(new Card(TournamentGame.tableCards[1]));
+      hands.push(new Card(TournamentGame.tableCards[2]));
+      hands.push(new Card(TournamentGame.tableCards[3]));
+      hands.push(new Card(TournamentGame.tableCards[4]));
       hands.push(new Card(players[i].cards[0]));
       hands.push(new Card(players[i].cards[1]));
       players[i].result = solver(hands);
@@ -358,34 +358,34 @@ module.exports = (io, socket, sitGames) => {
       if (players[i] != null) {
         if (maxWinBet < players[i].totalBet) {
           players[i].balance += Math.floor(players[i].totalBet - maxWinBet);
-          sitGame.pot -= players[i].totalBet - maxWinBet;
+          TournamentGame.pot -= players[i].totalBet - maxWinBet;
         }
       }
     }
     for (let i = 0; i < top.index.length; i++) {
       winner+=players[top.index[i]].user.username+", ";
       result="won "+Math.floor(
-        (sitGame.pot * players[top.index[i]].totalBet) / totalWinBet
+        (TournamentGame.pot * players[top.index[i]].totalBet) / totalWinBet
       )+" chips with "+ranks[players[top.index[i]].rank];
       players[top.index[i]].balance += Math.floor(
-        (sitGame.pot * players[top.index[i]].totalBet) / totalWinBet
+        (TournamentGame.pot * players[top.index[i]].totalBet) / totalWinBet
       );
     }
     winner=winner.substr(0, winner.length-2);
-    sitGame.pot = 0;
-    for (let i = 0; i < sitGame.players.length; i++) {
-      const player = sitGame.players[i];
+    TournamentGame.pot = 0;
+    for (let i = 0; i < TournamentGame.players.length; i++) {
+      const player = TournamentGame.players[i];
       if (player != null) {
         player.turn = false;
       }
     }
     setTimeout(() => {
-      io.to(sitGame.roomId).emit('sit:result', filterTableToShow(sitGame, null, true), winner, result);
+      io.to(TournamentGame.roomId).emit('sit:result', filterTableToShow(TournamentGame, null, true), winner, result);
     }, 1500);
 
     setTimeout(async () => {
-      for (let i = 0; i < sitGame.players.length; i++) {
-        const player = sitGame.players[i];
+      for (let i = 0; i < TournamentGame.players.length; i++) {
+        const player = TournamentGame.players[i];
         if (player != null) {
           player.allIn = false;
           player.fold = false;
@@ -393,25 +393,25 @@ module.exports = (io, socket, sitGames) => {
       }
       const outPlayers = [];
       const outPlayerNumbers = [];
-      for (let i = 0; i < sitGame.players.length; i++) {
-        player = sitGame.players[i];
+      for (let i = 0; i < TournamentGame.players.length; i++) {
+        player = TournamentGame.players[i];
         if (player != null && player.balance == 0) {
-          outPlayers.push(sitGame.players[i].user);
+          outPlayers.push(TournamentGame.players[i].user);
           outPlayerNumbers.push(i);
-          sitGame.players[i] = null;
+          TournamentGame.players[i] = null;
         }
       }
-      if (sitGame.players.filter((ele) => ele != null).length == 1) {
-        if (sitGame.firstPlace > 0) {
+      if (TournamentGame.players.filter((ele) => ele != null).length == 1) {
+        if (TournamentGame.firstPlace > 0) {
           const financial = {};
           financial.type = 'Sit&Go';
-          financial.amount = Math.floor(sitGame.firstPlace);
+          financial.amount = Math.floor(TournamentGame.firstPlace);
           financial.details = '1st Place';
-          let bonus = Math.floor(sitGame.firstPlace /200);       
+          let bonus = Math.floor(TournamentGame.firstPlace /200);       
           try {
-            const user=await User.findByIdAndUpdate(sitGame.players.find((ele) => ele != null).user.id, {
+            const user=await User.findByIdAndUpdate(TournamentGame.players.find((ele) => ele != null).user.id, {
               $inc: {
-                pivx: sitGame.firstPlace
+                pivx: TournamentGame.firstPlace
               },
               $push: {
                 financials: financial
@@ -422,10 +422,10 @@ module.exports = (io, socket, sitGames) => {
               financial.type = 'Bonus';
               financial.amount = bonus;
               const bonusData = {};
-              bonusData.table = sitGame.id;
+              bonusData.table = TournamentGame.id;
               bonusData.amount = bonus;
               bonusData.user = user.username;
-              bonusData.game = 'SitGame';
+              bonusData.game = 'TournamentGame';
               await User.findOneAndUpdate(
                 { username: user.referrer },
                 {
@@ -444,11 +444,11 @@ module.exports = (io, socket, sitGames) => {
             console.log(e);
           }
         }
-        if (sitGame.secondPlace + sitGame.thirdPlace > 0) {
+        if (TournamentGame.secondPlace + TournamentGame.thirdPlace > 0) {
           const financial = {};
           financial.type = 'Sit&Go';
           financial.amount = Math.floor(
-            (sitGame.secondPlace + sitGame.thirdPlace) / outPlayers.length
+            (TournamentGame.secondPlace + TournamentGame.thirdPlace) / outPlayers.length
           );
           financial.details = '2nd Place';
           let bonus=Math.floor(financial.amount/200);
@@ -467,10 +467,10 @@ module.exports = (io, socket, sitGames) => {
                 financial.type = 'Bonus';
                 financial.amount = bonus;
                 const bonusData = {};
-                bonusData.table = sitGame.id;
+                bonusData.table = TournamentGame.id;
                 bonusData.amount = bonus;
                 bonusData.user = user.username;
-                bonusData.game = 'SitGame';
+                bonusData.game = 'TournamentGame';
                 await User.findOneAndUpdate(
                   { username: user.referrer },
                   {
@@ -488,35 +488,35 @@ module.exports = (io, socket, sitGames) => {
           } catch (e) {
             console.log(e);
           }
-          io.to(sitGame.roomId).emit('sit:second', outPlayerNumbers);
-        } else io.to(sitGame.roomId).emit('sit:playersOut', outPlayerNumbers);
+          io.to(TournamentGame.roomId).emit('sit:second', outPlayerNumbers);
+        } else io.to(TournamentGame.roomId).emit('sit:playersOut', outPlayerNumbers);
 
-        io.to(sitGame.roomId).emit(
+        io.to(TournamentGame.roomId).emit(
           'sit:first',
-          sitGame.players.findIndex((ele) => ele != null)
+          TournamentGame.players.findIndex((ele) => ele != null)
         );
         //finish the sit game
-        const sitGameDB = await SitGame.findById(sitGame.id);
-        sitGameDB.closed = true;
-        await sitGameDB.save();
-        clearTimeout(sitGame.playTimeOut);
-        clearTimeout(sitGame.blindTimeOut);
-        sitGames.splice(
-          sitGames.findIndex((ele) => ele.id == sitGame.id),
+        const TournamentGameDB = await TournamentGame.findById(TournamentGame.id);
+        TournamentGameDB.closed = true;
+        await TournamentGameDB.save();
+        clearTimeout(TournamentGame.playTimeOut);
+        clearTimeout(TournamentGame.blindTimeOut);
+        TournamentGames.splice(
+          TournamentGames.findIndex((ele) => ele.id == TournamentGame.id),
           1
         );
         io.emit('sit:lobby', {
-          sitGames: filterTableForLobby(sitGames)
+          TournamentGames: filterTableForLobby(TournamentGames)
         });
         return;
-      } else if (sitGame.players.filter((ele) => ele != null).length == 2) {
-        if (sitGame.thirdPlace > 0) {
+      } else if (TournamentGame.players.filter((ele) => ele != null).length == 2) {
+        if (TournamentGame.thirdPlace > 0) {
           const financial = {};
           financial.type = 'Sit&Go';
-          financial.amount = Math.floor(sitGame.secondPlace / outPlayers.length);
+          financial.amount = Math.floor(TournamentGame.secondPlace / outPlayers.length);
           let bonus=Math.floor(financial.amount/200);
           financial.details = '3rd Place';
-          sitGame.thirdPlace=0;
+          TournamentGame.thirdPlace=0;
           try {
             for (let i = 0; i < outPlayers.length; i++) {
               const user=await User.findByIdAndUpdate(outPlayers[i].id, {
@@ -532,10 +532,10 @@ module.exports = (io, socket, sitGames) => {
                 financial.type = 'Bonus';
                 financial.amount = bonus;
                 const bonusData = {};
-                bonusData.table = sitGame.id;
+                bonusData.table = TournamentGame.id;
                 bonusData.amount = bonus;
                 bonusData.user = user.username;
-                bonusData.game = 'SitGame';
+                bonusData.game = 'TournamentGame';
                 await User.findOneAndUpdate(
                   { username: user.referrer },
                   {
@@ -553,38 +553,38 @@ module.exports = (io, socket, sitGames) => {
           } catch (e) {
             console.log(e);
           }
-          io.to(sitGame.roomId).emit('sit:third', outPlayerNumbers);
-        } else io.to(sitGame.roomId).emit('sit:playersOut', outPlayerNumbers);
+          io.to(TournamentGame.roomId).emit('sit:third', outPlayerNumbers);
+        } else io.to(TournamentGame.roomId).emit('sit:playersOut', outPlayerNumbers);
         io.emit('sit:lobby', {
-          sitGames: filterTableForLobby(sitGames)
+          TournamentGames: filterTableForLobby(TournamentGames)
         });
         setTimeout(() => {
           //remove game if no players
 
-          setNextRound(sitGame);
+          setNextRound(TournamentGame);
         }, 4500);
       } else {
-        io.to(sitGame.roomId).emit('sit:playersOut', outPlayerNumbers);
+        io.to(TournamentGame.roomId).emit('sit:playersOut', outPlayerNumbers);
         io.emit('sit:lobby', {
-          sitGames: filterTableForLobby(sitGames)
+          TournamentGames: filterTableForLobby(TournamentGames)
         });
         setTimeout(() => {
           //remove game if no players
 
-          setNextRound(sitGame);
+          setNextRound(TournamentGame);
         }, 4500);
       }
     }, 3000);
   }
-  function endGame(sitGame) {
+  function endGame(TournamentGame) {
     //when only one or 0 players left
     //init
     console.log('end game');
-    for (let i = 0; i < sitGame.players.length; i++) {
-      const player = sitGame.players[i];
+    for (let i = 0; i < TournamentGame.players.length; i++) {
+      const player = TournamentGame.players[i];
       if (player != null) {
         player.turn = false;
-        sitGame.pot += player.bet;
+        TournamentGame.pot += player.bet;
         player.totalBet += player.bet;
         player.bet = 0;
         player.behavior = false;
@@ -592,9 +592,9 @@ module.exports = (io, socket, sitGames) => {
         clearTimeout(player.playTimeOut);
       }
     }
-    sitGame.tableCards = [];
-    io.to(sitGame.roomId).emit('sit:open', filterTableToShow(sitGame, null, true));
-    let players = sitGame.players;
+    TournamentGame.tableCards = [];
+    io.to(TournamentGame.roomId).emit('sit:open', filterTableToShow(TournamentGame, null, true));
+    let players = TournamentGame.players;
     let winner, maxWinBet;
     if (players.filter((ele) => ele != null && !ele.stand && !ele.fold).length == 1) {
       winner = players.find((ele) => ele != null && !ele.stand && !ele.fold);
@@ -605,27 +605,27 @@ module.exports = (io, socket, sitGames) => {
         if (players[i] != null) {
           if (maxWinBet < players[i].totalBet) {
             players[i].balance += Math.floor(players[i].totalBet - maxWinBet);
-            sitGame.pot -= players[i].totalBet - maxWinBet;
+            TournamentGame.pot -= players[i].totalBet - maxWinBet;
           }
         }
       }
-      winner.balance += Math.floor(sitGame.pot);
+      winner.balance += Math.floor(TournamentGame.pot);
     }
-    sitGame.pot = 0;
+    TournamentGame.pot = 0;
 
-    for (let i = 0; i < sitGame.players.length; i++) {
-      const player = sitGame.players[i];
+    for (let i = 0; i < TournamentGame.players.length; i++) {
+      const player = TournamentGame.players[i];
       if (player != null) {
         player.turn = false;
       }
     }
     setTimeout(() => {
-      io.to(sitGame.roomId).emit('sit:result', filterTableToShow(sitGame, null, true));
+      io.to(TournamentGame.roomId).emit('sit:result', filterTableToShow(TournamentGame, null, true));
     }, 1000);
 
     setTimeout(async () => {
-      for (let i = 0; i < sitGame.players.length; i++) {
-        const player = sitGame.players[i];
+      for (let i = 0; i < TournamentGame.players.length; i++) {
+        const player = TournamentGame.players[i];
         if (player != null) {
           player.allIn = false;
           player.fold = false;
@@ -633,25 +633,25 @@ module.exports = (io, socket, sitGames) => {
       }
       const outPlayers = [];
       const outPlayerNumbers = [];
-      for (let i = 0; i < sitGame.players.length; i++) {
-        player = sitGame.players[i];
+      for (let i = 0; i < TournamentGame.players.length; i++) {
+        player = TournamentGame.players[i];
         if (player != null && player.balance == 0) {
-          outPlayers.push(sitGame.players[i].user);
+          outPlayers.push(TournamentGame.players[i].user);
           outPlayerNumbers.push(i);
-          sitGame.players[i] = null;
+          TournamentGame.players[i] = null;
         }
       }
-      if (sitGame.players.filter((ele) => ele != null).length == 1) {
-        if (sitGame.firstPlace > 0) {
+      if (TournamentGame.players.filter((ele) => ele != null).length == 1) {
+        if (TournamentGame.firstPlace > 0) {
           const financial = {};
           financial.type = 'Sit&Go';
-          financial.amount = Math.floor(sitGame.firstPlace);
+          financial.amount = Math.floor(TournamentGame.firstPlace);
           let bonus=Math.floor(financial.amount/200);
           financial.details = '1st Place';
           try {
-            const user=await User.findByIdAndUpdate(sitGame.players.find((ele) => ele != null).user.id, {
+            const user=await User.findByIdAndUpdate(TournamentGame.players.find((ele) => ele != null).user.id, {
               $inc: {
-                pivx: sitGame.firstPlace
+                pivx: TournamentGame.firstPlace
               },
               $push: {
                 financials: financial
@@ -662,10 +662,10 @@ module.exports = (io, socket, sitGames) => {
               financial.type = 'Bonus';
               financial.amount = bonus;
               const bonusData = {};
-              bonusData.table = sitGame.id;
+              bonusData.table = TournamentGame.id;
               bonusData.amount = bonus;
               bonusData.user = user.username;
-              bonusData.game = 'SitGame';
+              bonusData.game = 'TournamentGame';
               await User.findOneAndUpdate(
                 { username: user.referrer },
                 {
@@ -683,11 +683,11 @@ module.exports = (io, socket, sitGames) => {
             console.log(e);
           }
         }
-        if (sitGame.secondPlace + sitGame.thirdPlace > 0) {
+        if (TournamentGame.secondPlace + TournamentGame.thirdPlace > 0) {
           const financial = {};
           financial.type = 'Sit&Go';
           financial.amount = Math.floor(
-            (sitGame.secondPlace + sitGame.thirdPlace) / outPlayers.length
+            (TournamentGame.secondPlace + TournamentGame.thirdPlace) / outPlayers.length
           );
           let bonus=Math.floor(financial.amount/200);
           financial.details = '2nd Place';
@@ -706,10 +706,10 @@ module.exports = (io, socket, sitGames) => {
                 financial.type = 'Bonus';
                 financial.amount = bonus;
                 const bonusData = {};
-                bonusData.table = sitGame.id;
+                bonusData.table = TournamentGame.id;
                 bonusData.amount = bonus;
                 bonusData.user = user.username;
-                bonusData.game = 'SitGame';
+                bonusData.game = 'TournamentGame';
                 await User.findOneAndUpdate(
                   { username: user.referrer },
                   {
@@ -727,36 +727,36 @@ module.exports = (io, socket, sitGames) => {
           } catch (e) {
             console.log(e);
           }
-          io.to(sitGame.roomId).emit('sit:second', outPlayerNumbers);
-        } else io.to(sitGame.roomId).emit('sit:playersOut', outPlayerNumbers);
+          io.to(TournamentGame.roomId).emit('sit:second', outPlayerNumbers);
+        } else io.to(TournamentGame.roomId).emit('sit:playersOut', outPlayerNumbers);
 
-        io.to(sitGame.roomId).emit(
+        io.to(TournamentGame.roomId).emit(
           'sit:first',
-          sitGame.players.findIndex((ele) => ele != null)
+          TournamentGame.players.findIndex((ele) => ele != null)
         );
         //finish the sit game
 
-        const sitGameDB = await SitGame.findById(sitGame.id);
-        sitGameDB.closed = true;
-        await sitGameDB.save();
-        clearTimeout(sitGame.playTimeOut);
-        clearTimeout(sitGame.blindTimeOut);
-        sitGames.splice(
-          sitGames.findIndex((ele) => ele.id == sitGame.id),
+        const TournamentGameDB = await TournamentGame.findById(TournamentGame.id);
+        TournamentGameDB.closed = true;
+        await TournamentGameDB.save();
+        clearTimeout(TournamentGame.playTimeOut);
+        clearTimeout(TournamentGame.blindTimeOut);
+        TournamentGames.splice(
+          TournamentGames.findIndex((ele) => ele.id == TournamentGame.id),
           1
         );
         io.emit('sit:lobby', {
-          sitGames: filterTableForLobby(sitGames)
+          TournamentGames: filterTableForLobby(TournamentGames)
         });
         return;
-      } else if (sitGame.players.filter((ele) => ele != null).length == 2) {
-        if (sitGame.thirdPlace > 0) {
+      } else if (TournamentGame.players.filter((ele) => ele != null).length == 2) {
+        if (TournamentGame.thirdPlace > 0) {
           const financial = {};
           financial.type = 'Sit&Go';
-          financial.amount = Math.floor(sitGame.secondPlace / outPlayers.length);
+          financial.amount = Math.floor(TournamentGame.secondPlace / outPlayers.length);
           let bonus=Math.floor(financial.amount/200);
           financial.details = '3rd Place';
-          sitGame.thirdPlace=0;
+          TournamentGame.thirdPlace=0;
           try {
             for (let i = 0; i < outPlayers.length; i++) {
               const user=await User.findByIdAndUpdate(outPlayers[i].id, {
@@ -772,10 +772,10 @@ module.exports = (io, socket, sitGames) => {
                 financial.type = 'Bonus';
                 financial.amount = bonus;
                 const bonusData = {};
-                bonusData.table = sitGame.id;
+                bonusData.table = TournamentGame.id;
                 bonusData.amount = bonus;
                 bonusData.user = user.username;
-                bonusData.game = 'SitGame';
+                bonusData.game = 'TournamentGame';
                 await User.findOneAndUpdate(
                   { username: user.referrer },
                   {
@@ -793,237 +793,237 @@ module.exports = (io, socket, sitGames) => {
           } catch (e) {
             console.log(e);
           }
-          io.to(sitGame.roomId).emit('sit:third', outPlayerNumbers);
-        } else io.to(sitGame.roomId).emit('sit:playersOut', outPlayerNumbers);
+          io.to(TournamentGame.roomId).emit('sit:third', outPlayerNumbers);
+        } else io.to(TournamentGame.roomId).emit('sit:playersOut', outPlayerNumbers);
         io.emit('sit:lobby', {
-          sitGames: filterTableForLobby(sitGames)
+          TournamentGames: filterTableForLobby(TournamentGames)
         });
         setTimeout(() => {
           //remove game if no players
 
-          setNextRound(sitGame);
+          setNextRound(TournamentGame);
         }, 1500);
       } else {
-        io.to(sitGame.roomId).emit('sit:playersOut', outPlayerNumbers);
+        io.to(TournamentGame.roomId).emit('sit:playersOut', outPlayerNumbers);
         io.emit('sit:lobby', {
-          sitGames: filterTableForLobby(sitGames)
+          TournamentGames: filterTableForLobby(TournamentGames)
         });
         setTimeout(() => {
           //remove game if no players
 
-          setNextRound(sitGame);
+          setNextRound(TournamentGame);
         }, 1500);
       }
     }, 1000);
   }
 
-  function nextCard(sitGame) {
+  function nextCard(TournamentGame) {
     console.log('next card');
     //init
-    sitGame.dealerPassed = false;
-    sitGame.bigBlindPassed = false;
-    const players = sitGame.players;
-    sitGame.raise = 0;
-    sitGame.bet = 0;
+    TournamentGame.dealerPassed = false;
+    TournamentGame.bigBlindPassed = false;
+    const players = TournamentGame.players;
+    TournamentGame.raise = 0;
+    TournamentGame.bet = 0;
     //gather to pot
     for (let i = 0; i < players.length; i++) {
       if (players[i] != null) {
-        sitGame.pot += players[i].bet;
+        TournamentGame.pot += players[i].bet;
         players[i].totalBet += players[i].bet;
         players[i].bet = 0;
       }
     }
     //open table cards
-    if (sitGame.tableCards.length == 0) {
+    if (TournamentGame.tableCards.length == 0) {
       console.log('3 cards open');
-      sitGame.tableCards.push(sitGame.cards[sitGame.cardNo]);
-      sitGame.cardNo++;
-      sitGame.tableCards.push(sitGame.cards[sitGame.cardNo]);
-      sitGame.cardNo++;
-      sitGame.tableCards.push(sitGame.cards[sitGame.cardNo]);
-      sitGame.cardNo++;      
-    } else if (sitGame.tableCards.length < 5) {
+      TournamentGame.tableCards.push(TournamentGame.cards[TournamentGame.cardNo]);
+      TournamentGame.cardNo++;
+      TournamentGame.tableCards.push(TournamentGame.cards[TournamentGame.cardNo]);
+      TournamentGame.cardNo++;
+      TournamentGame.tableCards.push(TournamentGame.cards[TournamentGame.cardNo]);
+      TournamentGame.cardNo++;      
+    } else if (TournamentGame.tableCards.length < 5) {
       console.log('next card open');
-      sitGame.tableCards.push(sitGame.cards[sitGame.cardNo]);
-      sitGame.cardNo++;      
+      TournamentGame.tableCards.push(TournamentGame.cards[TournamentGame.cardNo]);
+      TournamentGame.cardNo++;      
     } else {
       console.log('result');
-      calcResult(sitGame);
+      calcResult(TournamentGame);
       return;
     }
       setTimeout(()=>{
 
-      io.to(sitGame.roomId).emit('sit:card', {
-        tableCards: sitGame.tableCards,
-        pot: sitGame.pot
+      io.to(TournamentGame.roomId).emit('sit:card', {
+        tableCards: TournamentGame.tableCards,
+        pot: TournamentGame.pot
       });
       if (players.filter((ele) => ele != null && !ele.stand && !ele.fold).length < 2) {
-        endGame(sitGame);
+        endGame(TournamentGame);
         return;
       } else if (
         players.filter((ele) => ele != null && !ele.stand && !ele.fold && !ele.allIn).length < 2
       ) {
-        nextCard(sitGame);
+        nextCard(TournamentGame);
         return;
       }
 
-      let position = sitGame.dealerNext;
+      let position = TournamentGame.dealerNext;
       if (
         players[position].allIn ||
         players[position].fold ||
         players[position].stand ||
         players[position].balance == 0
       ) {
-        position = getNextPlayer(sitGame, position);
+        position = getNextPlayer(TournamentGame, position);
       }
 
       if (position < 0) {
-        nextCard(sitGame);
+        nextCard(TournamentGame);
         return;
       }
       players[position].turn = true;
       players[position].turnTime = 0;
       players[position].playTimeOut = setTimeout(
         turnTimeOut,
-        sitGame.turnTime * 10,
-        sitGame,
+        TournamentGame.turnTime * 10,
+        TournamentGame,
         position
       );
-      sitGame.allowedBet = allowedBet(sitGame, position);
-      io.to(sitGame.roomId).emit('sit:turn', {
+      TournamentGame.allowedBet = allowedBet(TournamentGame, position);
+      io.to(TournamentGame.roomId).emit('sit:turn', {
         position,
         time: 0,
-        amount: sitGame.allowedBet
+        amount: TournamentGame.allowedBet
       });
     },1500);
   }
 
-  function nextTurn(sitGame, position) {
-    const players = sitGame.players;
-    let newPosition = getNextPlayer(sitGame, position);
+  function nextTurn(TournamentGame, position) {
+    const players = TournamentGame.players;
+    let newPosition = getNextPlayer(TournamentGame, position);
     if (newPosition < 0) {
       //next card
       if (players[position] != null) players[position].turn = false;
-      nextCard(sitGame);
+      nextCard(TournamentGame);
       return;
     } else {
       //turn out
       if (players[position] != null) players[position].turn = false;
       if (
-        players[newPosition].bet >= sitGame.bet &&
+        players[newPosition].bet >= TournamentGame.bet &&
         players.filter((ele) => ele != null && !ele.stand && !ele.fold).length < 2
       ) {
-        endGame(sitGame);
+        endGame(TournamentGame);
         return;
       } else if (
-        players[newPosition].bet >= sitGame.bet &&
+        players[newPosition].bet >= TournamentGame.bet &&
         players.filter((ele) => ele != null && !ele.stand && !ele.fold && !ele.allIn).length < 2
       ) {
-        nextCard(sitGame);
+        nextCard(TournamentGame);
         return;
       }
       players[newPosition].turn = true;
       players[newPosition].turnTime = 0;
       players[newPosition].playTimeOut = setTimeout(
         turnTimeOut,
-        sitGame.turnTime * 10,
-        sitGame,
+        TournamentGame.turnTime * 10,
+        TournamentGame,
         newPosition
       );
-      sitGame.allowedBet = allowedBet(sitGame, newPosition);
-      io.to(sitGame.roomId).emit('sit:turn', {
+      TournamentGame.allowedBet = allowedBet(TournamentGame, newPosition);
+      io.to(TournamentGame.roomId).emit('sit:turn', {
         position: newPosition,
         time: 0,
-        amount: sitGame.allowedBet
+        amount: TournamentGame.allowedBet
       });
     }
   }
 
-  function standPlayer(sitGame, position) {
-    sitGame.players[position].stand = true;
-    sitGame.players[position].turn = false;
-    sitGame.players[position].cards = null;
-    sitGame.pot += sitGame.players[position].bet;
-    sitGame.players[position].bet = 0;
-    sitGame.players[position].totalBet = 0;
-    io.to(sitGame.roomId).emit('sit:stand', {
+  function standPlayer(TournamentGame, position) {
+    TournamentGame.players[position].stand = true;
+    TournamentGame.players[position].turn = false;
+    TournamentGame.players[position].cards = null;
+    TournamentGame.pot += TournamentGame.players[position].bet;
+    TournamentGame.players[position].bet = 0;
+    TournamentGame.players[position].totalBet = 0;
+    io.to(TournamentGame.roomId).emit('sit:stand', {
       position
     });
   }
-  function prepareSitGame(sitGame) {
-    sitGame.ready--;
-    io.to(sitGame.roomId).emit('sit:ready', {
-      time: sitGame.ready
+  function prepareTournamentGame(TournamentGame) {
+    TournamentGame.ready--;
+    io.to(TournamentGame.roomId).emit('sit:ready', {
+      time: TournamentGame.ready
     });
-    if (sitGame.ready <= 0) {
-      setFirstRound(sitGame);
+    if (TournamentGame.ready <= 0) {
+      setFirstRound(TournamentGame);
     } else {
-      setTimeout(prepareSitGame, 1000, sitGame);
+      setTimeout(prepareTournamentGame, 1000, TournamentGame);
     }
   }
 
-  function setNextBlind(sitGame) {
-    sitGame.blindStep++;
-    sitGame.blinds = constants.sitBlindList[sitGame.blindSchedule][sitGame.blindStep].blinds;
-    sitGame.blindTimeOut = setTimeout(
+  function setNextBlind(TournamentGame) {
+    TournamentGame.blindStep++;
+    TournamentGame.blinds = constants.sitBlindList[TournamentGame.blindSchedule][TournamentGame.blindStep].blinds;
+    TournamentGame.blindTimeOut = setTimeout(
       setNextBlind,
-      constants.sitBlindList[sitGame.blindSchedule][sitGame.blindStep].duration * 60 * 1000,
-      sitGame
+      constants.sitBlindList[TournamentGame.blindSchedule][TournamentGame.blindStep].duration * 60 * 1000,
+      TournamentGame
     );
   }
 
-  function turnTimeOut(sitGame, position) {
-    sitGame.players[position].turnTime += sitGame.turnTime * 10;
-    const player = sitGame.players[position];
+  function turnTimeOut(TournamentGame, position) {
+    TournamentGame.players[position].turnTime += TournamentGame.turnTime * 10;
+    const player = TournamentGame.players[position];
     if (player.behavior && 1000 <= player.turnTime) {
-      bet(sitGame.players, position, sitGame.bet);
-      io.to(sitGame.roomId).emit('sit:bet', {
+      bet(TournamentGame.players, position, TournamentGame.bet);
+      io.to(TournamentGame.roomId).emit('sit:bet', {
         position,
         bet: player.bet,
         balance: player.balance,
         fold: player.fold,
         allIn: player.allIn,
         stand: player.stand,
-        pot: sitGame.pot
+        pot: TournamentGame.pot
       });
       if (
-        sitGame.players.filter((ele) => ele != null && !ele.fold && !ele.stand)
+        TournamentGame.players.filter((ele) => ele != null && !ele.fold && !ele.stand)
           .length < 2
       ) {
-        endGame(sitGame);
+        endGame(TournamentGame);
       } else {
-        nextTurn(sitGame, position);
+        nextTurn(TournamentGame, position);
       }
-    }else if (sitGame.turnTime * 1000 <= player.turnTime) {
-      if (player.bet==sitGame.bet) {
-        bet(sitGame.players, position, sitGame.bet);
+    }else if (TournamentGame.turnTime * 1000 <= player.turnTime) {
+      if (player.bet==TournamentGame.bet) {
+        bet(TournamentGame.players, position, TournamentGame.bet);
       } else {
-        standPlayer(sitGame, position);
+        standPlayer(TournamentGame, position);
       }
 
-      io.to(sitGame.roomId).emit('sit:bet', {
+      io.to(TournamentGame.roomId).emit('sit:bet', {
         position,
         bet: player.bet,
         balance: player.balance,
         fold: player.fold,
         allIn: player.allIn,
         stand: player.stand,
-        pot: sitGame.pot
+        pot: TournamentGame.pot
       });
-      if (sitGame.players.filter((ele) => ele != null && !ele.fold && !ele.stand).length < 2) {
-        endGame(sitGame);
+      if (TournamentGame.players.filter((ele) => ele != null && !ele.fold && !ele.stand).length < 2) {
+        endGame(TournamentGame);
       } else {
-        nextTurn(sitGame, position);
+        nextTurn(TournamentGame, position);
       }
     } else {
-      io.to(sitGame.roomId).emit('sit:turn', {
+      io.to(TournamentGame.roomId).emit('sit:turn', {
         position,
         time: player.turnTime
       });
       player.playTimeOut = setTimeout(
         turnTimeOut,
-        sitGame.turnTime * 10,
-        sitGame,
+        TournamentGame.turnTime * 10,
+        TournamentGame,
         position
       );
     }
@@ -1041,24 +1041,24 @@ module.exports = (io, socket, sitGames) => {
     }
   }
 
-  function setFirstRound(sitGame) {
-    sitGame.nonce =sitGame.nonce ?sitGame.nonce+1 : 0;
-    sitGame.cards = generateCards(
-      sitGame.serverSeed,
-      sitGame.id + sitGame.name,
-      sitGame.nonce,
+  function setFirstRound(TournamentGame) {
+    TournamentGame.nonce =TournamentGame.nonce ?TournamentGame.nonce+1 : 0;
+    TournamentGame.cards = generateCards(
+      TournamentGame.serverSeed,
+      TournamentGame.id + TournamentGame.name,
+      TournamentGame.nonce,
       0,
       52
     );
-    let players = sitGame.players;
+    let players = TournamentGame.players;
     //init
-    sitGame.tableCards = [];
-    sitGame.dealerPassed = false;
-    sitGame.bigBlindPassed = false;
-    sitGame.pot = 0;
+    TournamentGame.tableCards = [];
+    TournamentGame.dealerPassed = false;
+    TournamentGame.bigBlindPassed = false;
+    TournamentGame.pot = 0;
     
-    sitGame.cardNo = 0;
-    sitGame.players = sitGame.players.map((ele) => {
+    TournamentGame.cardNo = 0;
+    TournamentGame.players = TournamentGame.players.map((ele) => {
       if (ele != null) {
         const item = ele;
         item.turn = false;
@@ -1076,73 +1076,73 @@ module.exports = (io, socket, sitGames) => {
       }
       return ele;
     });
-    sitGame.blindStep = 0;
-    sitGame.blinds = constants.sitBlindList[sitGame.blindSchedule][sitGame.blindStep].blinds;
-    sitGame.blindTimeOut = setTimeout(
+    TournamentGame.blindStep = 0;
+    TournamentGame.blinds = constants.sitBlindList[TournamentGame.blindSchedule][TournamentGame.blindStep].blinds;
+    TournamentGame.blindTimeOut = setTimeout(
       setNextBlind,
-      constants.sitBlindList[sitGame.blindSchedule][sitGame.blindStep].duration * 60 * 1000,
-      sitGame
+      constants.sitBlindList[TournamentGame.blindSchedule][TournamentGame.blindStep].duration * 60 * 1000,
+      TournamentGame
     );
-    sitGame.bet = sitGame.blinds == 2 ? 5 : sitGame.blinds * 2;
-    sitGame.raise = sitGame.blinds == 2 ? 5 : sitGame.blinds * 2;
+    TournamentGame.bet = TournamentGame.blinds == 2 ? 5 : TournamentGame.blinds * 2;
+    TournamentGame.raise = TournamentGame.blinds == 2 ? 5 : TournamentGame.blinds * 2;
     console.log('init');
     //share the cards
-    sharePlayerCards(sitGame);
+    sharePlayerCards(TournamentGame);
     //find dealer
     let position = 0;
-    sitGame.dealer = position;
+    TournamentGame.dealer = position;
     if (players.filter((ele) => ele != null).length == 2) {
-      bet(players, position, sitGame.blinds);
+      bet(players, position, TournamentGame.blinds);
 
       //Big Blind Bet
-      position = getNextPlayer(sitGame, position, false);
-      sitGame.dealerNext = position;
-      sitGame.bigBlind = position;
-      bet(players, position, sitGame.blinds == 2 ? 5 : sitGame.blinds * 2);
-      sitGame.bigBlindNext = getNextPlayer(sitGame, position, false);
+      position = getNextPlayer(TournamentGame, position, false);
+      TournamentGame.dealerNext = position;
+      TournamentGame.bigBlind = position;
+      bet(players, position, TournamentGame.blinds == 2 ? 5 : TournamentGame.blinds * 2);
+      TournamentGame.bigBlindNext = getNextPlayer(TournamentGame, position, false);
     } else {
       //small Blind Bet
-      position = getNextPlayer(sitGame, position, false);
-      sitGame.dealerNext = position;
-      bet(players, position, sitGame.blinds);
+      position = getNextPlayer(TournamentGame, position, false);
+      TournamentGame.dealerNext = position;
+      bet(players, position, TournamentGame.blinds);
       //Big Blind Bet
-      position = getNextPlayer(sitGame, position, false);
-      sitGame.bigBlind = position;
-      bet(players, position, sitGame.blinds == 2 ? 5 : sitGame.blinds * 2);
-      sitGame.bigBlindNext = getNextPlayer(sitGame, position, false);
+      position = getNextPlayer(TournamentGame, position, false);
+      TournamentGame.bigBlind = position;
+      bet(players, position, TournamentGame.blinds == 2 ? 5 : TournamentGame.blinds * 2);
+      TournamentGame.bigBlindNext = getNextPlayer(TournamentGame, position, false);
     }
     console.log('started');
-    io.to(sitGame.roomId).emit('sit:start', {
-      sitGame: filterTableToShow(sitGame, null)
+    io.to(TournamentGame.roomId).emit('sit:start', {
+      TournamentGame: filterTableToShow(TournamentGame, null)
     });
-    position = getNextPlayer(sitGame, position, false);
+    position = getNextPlayer(TournamentGame, position, false);
     players[position].turn = true;
     players[position].turnTime = 0;
     players[position].playTimeOut = setTimeout(
       turnTimeOut,
-      sitGame.turnTime * 10,
-      sitGame,
+      TournamentGame.turnTime * 10,
+      TournamentGame,
       position
     );
 
-    sitGame.allowedBet = allowedBet(sitGame, position);
-    io.to(sitGame.roomId).emit('sit:turn', {
+    TournamentGame.allowedBet = allowedBet(TournamentGame, position);
+    io.to(TournamentGame.roomId).emit('sit:turn', {
       position,
       time: 0,
-      amount: sitGame.allowedBet
+      amount: TournamentGame.allowedBet
     });
   }
 
-  function setNextRound(sitGame) {
-    sitGame.nonce++;
-    sitGame.cards = generateCards(
-      sitGame.serverSeed,
-      sitGame.id + sitGame.name,
-      sitGame.nonce,
+  function setNextRound(TournamentGame) {
+    TournamentGame.nonce++;
+    TournamentGame.cards = generateCards(
+      TournamentGame.serverSeed,
+      TournamentGame.id + TournamentGame.name,
+      TournamentGame.nonce,
       0,
       52
     );
-    let players = sitGame.players;
+    let players = TournamentGame.players;
     //init
     players = players.map((ele) => {
       if (ele != null) {
@@ -1157,68 +1157,72 @@ module.exports = (io, socket, sitGames) => {
       }
       return ele;
     });
-    sitGame.pot = 0;
-    sitGame.bet = sitGame.blinds == 2 ? 5 : sitGame.blinds * 2;
-    sitGame.raise = sitGame.blinds == 2 ? 5 : sitGame.blinds * 2;
-    sitGame.bigBlindPassed = false;
-    sitGame.dealerPassed = false;
-    sitGame.cardNo = 0;
-    sitGame.tableCards = [];
+    TournamentGame.pot = 0;
+    TournamentGame.bet = TournamentGame.blinds == 2 ? 5 : TournamentGame.blinds * 2;
+    TournamentGame.raise = TournamentGame.blinds == 2 ? 5 : TournamentGame.blinds * 2;
+    TournamentGame.bigBlindPassed = false;
+    TournamentGame.dealerPassed = false;
+    TournamentGame.cardNo = 0;
+    TournamentGame.tableCards = [];
     //share the cards
-    sharePlayerCards(sitGame);
-    let position = getNextPlayer(sitGame, sitGame.dealer, false);
-    sitGame.dealer = position;
+    sharePlayerCards(TournamentGame);
+    let position = getNextPlayer(TournamentGame, TournamentGame.dealer, false);
+    TournamentGame.dealer = position;
     if (
       players.filter((ele) => ele != null && ele.allIn == false && ele.fold == false).length == 2
     ) {
-      bet(players, position, sitGame.blinds);
+      bet(players, position, TournamentGame.blinds);
       //Big Blind Bet
-      position = getNextPlayer(sitGame, position, false);
-      sitGame.dealerNext = position;
-      sitGame.bigBlind = position;
-      bet(players, position, sitGame.blinds == 2 ? 5 : sitGame.blinds * 2);
-      position = getNextPlayer(sitGame, position, false);
-      sitGame.bigBlindNext = position;
+      position = getNextPlayer(TournamentGame, position, false);
+      TournamentGame.dealerNext = position;
+      TournamentGame.bigBlind = position;
+      bet(players, position, TournamentGame.blinds == 2 ? 5 : TournamentGame.blinds * 2);
+      position = getNextPlayer(TournamentGame, position, false);
+      TournamentGame.bigBlindNext = position;
     } else {
       //small Blind Bet
-      position = getNextPlayer(sitGame, position, false);
-      sitGame.dealerNext = position;
+      position = getNextPlayer(TournamentGame, position, false);
+      TournamentGame.dealerNext = position;
 
-      bet(players, position, sitGame.blinds);
+      bet(players, position, TournamentGame.blinds);
       //Big Blind Bet
-      position = getNextPlayer(sitGame, position, false);
-      sitGame.bigBlind = position;
+      position = getNextPlayer(TournamentGame, position, false);
+      TournamentGame.bigBlind = position;
 
-      bet(players, position, sitGame.blinds == 2 ? 5 : sitGame.blinds * 2);
-      position = getNextPlayer(sitGame, position, false);
-      sitGame.bigBlindNext = position;
+      bet(players, position, TournamentGame.blinds == 2 ? 5 : TournamentGame.blinds * 2);
+      position = getNextPlayer(TournamentGame, position, false);
+      TournamentGame.bigBlindNext = position;
     }
-    io.to(sitGame.roomId).emit('sit:start', {
-      sitGame: filterTableToShow(sitGame, null)
+    io.to(TournamentGame.roomId).emit('sit:start', {
+      TournamentGame: filterTableToShow(TournamentGame, null)
     });
 
     if (players[position] == null || players[position].stand) {
-      nextTurn(sitGame, position);
+      nextTurn(TournamentGame, position);
       return;
     }
     players[position].turn = true;
     players[position].turnTime = 0;
     players[position].playTimeOut = setTimeout(
       turnTimeOut,
-      sitGame.turnTime * 10,
-      sitGame,
+      TournamentGame.turnTime * 10,
+      TournamentGame,
       position
     );
-    sitGame.allowedBet = allowedBet(sitGame, position);
-    io.to(sitGame.roomId).emit('sit:turn', {
+    TournamentGame.allowedBet = allowedBet(TournamentGame, position);
+    io.to(TournamentGame.roomId).emit('sit:turn', {
       position,
       time: 0,
-      amount: sitGame.allowedBet
+      amount: TournamentGame.allowedBet
     });
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //socket event functions
+  //
+  //We won't be using the createGame system as the backend will create the game. No user will create a game
+  //
+  //
   const createGame = async (data, callback) => {
     if (!socket.user) {
       callback({
@@ -1240,7 +1244,7 @@ module.exports = (io, socket, sitGames) => {
       });
       return;
     }
-    if (sitGames.find((ele) => ele.name == data.name)) {
+    if (TournamentGames.find((ele) => ele.name == data.name)) {
       callback({
         message: 'Table Name is already taken!',
         status: false
@@ -1265,35 +1269,35 @@ module.exports = (io, socket, sitGames) => {
       });
       return;
     }
-    const sitGame = data;
-    const sitGameDB = new SitGame();
-    sitGameDB.name = data.name;
-    sitGameDB.blindsSchedule = data.blindSchedule;
-    sitGameDB.stack = data.startingStack;
-    sitGameDB.first = data.firstPlace;
-    sitGameDB.second = data.secondPlace;
-    sitGameDB.third = data.thirdPlace;
-    sitGameDB.seats = data.tableSize;
-    sitGameDB.buyIn=data.buyIn;
-    sitGameDB.serverSeed = generateServerSeed();
-    await sitGameDB.save();
-    sitGame.id = sitGameDB.id;
+    const TournamentGame = data;
+    const TournamentGameDB = new TournamentGame();
+    TournamentGameDB.name = data.name;
+    TournamentGameDB.blindsSchedule = data.blindSchedule;
+    TournamentGameDB.stack = data.startingStack;
+    TournamentGameDB.first = data.firstPlace;
+    TournamentGameDB.second = data.secondPlace;
+    TournamentGameDB.third = data.thirdPlace;
+    TournamentGameDB.seats = data.tableSize;
+    TournamentGameDB.buyIn=data.buyIn;
+    TournamentGameDB.serverSeed = generateServerSeed();
+    await TournamentGameDB.save();
+    TournamentGame.id = TournamentGameDB.id;
 
-    sitGame.roomId = 'sit_' + sitGame.id;
-    sitGame.creator = { id: socket.id, username: socket.user.username };
-    sitGame.playing = false;
-    sitGame.tableCards = [];
-    sitGame.pot = 0;
-    sitGame.bet = 0;
-    sitGame.raise = 0;
-    sitGame.playTimeOut = null;
-    sitGame.players = [];
-    sitGame.serverSeed = sitGameDB.serverSeed;
-    sitGame.serverHash = sha256(sitGame.serverSeed);
-    sitGame.cardNo = 0;
-    sitGame.dealerPassed = false;
-    sitGame.bigBlindPassed = false;
-    sitGame.dealer = 0;
+    TournamentGame.roomId = 'sit_' + TournamentGame.id;
+    TournamentGame.creator = { id: socket.id, username: socket.user.username };
+    TournamentGame.playing = false;
+    TournamentGame.tableCards = [];
+    TournamentGame.pot = 0;
+    TournamentGame.bet = 0;
+    TournamentGame.raise = 0;
+    TournamentGame.playTimeOut = null;
+    TournamentGame.players = [];
+    TournamentGame.serverSeed = TournamentGameDB.serverSeed;
+    TournamentGame.serverHash = sha256(TournamentGame.serverSeed);
+    TournamentGame.cardNo = 0;
+    TournamentGame.dealerPassed = false;
+    TournamentGame.bigBlindPassed = false;
+    TournamentGame.dealer = 0;
     const player = {
       avatar: socket.user.profilePhoto,
       id: socket.id,
@@ -1301,7 +1305,7 @@ module.exports = (io, socket, sitGames) => {
       cards: null,
       dealer: true,
       turn: false,
-      balance: sitGame.startingStack,
+      balance: TournamentGame.startingStack,
       bet: 0,
       stand: false,
       fold: false,
@@ -1315,7 +1319,7 @@ module.exports = (io, socket, sitGames) => {
         socket.user.id,
         {
           $inc: {
-            pivx: -sitGame.buyIn
+            pivx: -TournamentGame.buyIn
           }
         },
         { new: true }
@@ -1325,59 +1329,59 @@ module.exports = (io, socket, sitGames) => {
       console.log(e);
     }
 
-    sitGame.players.push(player);
+    TournamentGame.players.push(player);
 
-    sitGame.playTimeOut = setTimeout(removeSitGame, 
-      1200*1000, sitGame.id);
-    sitGames.push(sitGame);
+    TournamentGame.playTimeOut = setTimeout(removeTournamentGame, 
+      1200*1000, TournamentGame.id);
+    TournamentGames.push(TournamentGame);
     io.emit('sit:lobby', {
-      sitGames: filterTableForLobby(sitGames)
+      TournamentGames: filterTableForLobby(TournamentGames)
     });
     callback({
-      id: sitGame.id,
+      id: TournamentGame.id,
       pivx: socket.user.pivx,
       status: true
     });
   };
 
   const enterGame = async (id, callback) => {
-    const sitGame = sitGames.find((ele) => ele.id == id);
-    if (sitGame) {
+    const TournamentGame = TournamentGames.find((ele) => ele.id == id);
+    if (TournamentGame) {
       if (!socket.rooms.has('sit_' + id)) socket.join('sit_' + id);
-      const data = filterTableToShow(sitGame, socket);
+      const data = filterTableToShow(TournamentGame, socket);
       callback({
-        sitGame: data
+        TournamentGame: data
       });
     }
   };
 
   const showMyCards = async (id, callback) => {
-    const sitGame = sitGames.find((ele) => ele.id == id);
-    if (sitGame) {
+    const TournamentGame = TournamentGames.find((ele) => ele.id == id);
+    if (TournamentGame) {
       callback({
-        cards: sitGame.players.find((ele) => ele != null && ele.user.id == socket.user.id).cards
+        cards: TournamentGame.players.find((ele) => ele != null && ele.user.id == socket.user.id).cards
       });
     }
   };
 
   const joinGame = async (roomId, password, callback) => {
     console.log('join');
-    const sitGame = sitGames.find((ele) => ele.id == roomId);
-    if (!sitGame) {
+    const TournamentGame = TournamentGames.find((ele) => ele.id == roomId);
+    if (!TournamentGame) {
       callback({
         message: 'There is no table!',
         status: false
       });
       return;
     }
-    if (sitGame.playing) {
+    if (TournamentGame.playing) {
       callback({
         message: 'Already started!',
         status: false
       });
       return;
     }
-    if (sitGame.players.length == sitGame.tableSize) {
+    if (TournamentGame.players.length == TournamentGame.tableSize) {
       callback({
         message: 'No seat!',
         status: false
@@ -1390,20 +1394,20 @@ module.exports = (io, socket, sitGames) => {
         status: false
       });
       return;
-    } else if (socket.user.pivx < sitGame.buyIn) {
+    } else if (socket.user.pivx < TournamentGame.buyIn) {
       callback({
         message: 'Not enough balance to join a table!',
         status: false
       });
       return;
-    } else if (sitGame.privacy && password != sitGame.password) {
+    } else if (TournamentGame.privacy && password != TournamentGame.password) {
       callback({
         message: 'Wrong Password!',
         status: false
       });
       return;
     }
-    let joined = sitGame.players.findIndex((ele) =>
+    let joined = TournamentGame.players.findIndex((ele) =>
       ele != null ? ele.user.id === socket.user.id : false
     );
     if (joined > -1) {
@@ -1412,7 +1416,7 @@ module.exports = (io, socket, sitGames) => {
           socket.user.id,
           {
             $inc: {
-              pivx: sitGame.buyIn
+              pivx: TournamentGame.buyIn
             }
           },
           { new: true }
@@ -1421,16 +1425,16 @@ module.exports = (io, socket, sitGames) => {
       } catch (e) {
         console.log(e);
       }
-      sitGame.players.splice(joined, 1);
+      TournamentGame.players.splice(joined, 1);
       io.emit('sit:lobby', {
-        sitGames: filterTableForLobby(sitGames)
+        TournamentGames: filterTableForLobby(TournamentGames)
       });
-      socket.to(sitGame.roomId).emit('sit:join', {
-        sitGame: filterTableToShow(sitGame, null)
+      socket.to(TournamentGame.roomId).emit('sit:join', {
+        TournamentGame: filterTableToShow(TournamentGame, null)
       });
-      const data = filterTableToShow(sitGame, socket);
+      const data = filterTableToShow(TournamentGame, socket);
       callback({
-        sitGame: data,
+        TournamentGame: data,
         pivx:socket.user.pivx,
         status: true
       });
@@ -1445,7 +1449,7 @@ module.exports = (io, socket, sitGames) => {
       cards: null,
       dealer: false,
       turn: false,
-      balance: sitGame.startingStack,
+      balance: TournamentGame.startingStack,
       bet: 0,
       stand: false,
       fold: false,
@@ -1459,7 +1463,7 @@ module.exports = (io, socket, sitGames) => {
         socket.user.id,
         {
           $inc: {
-            pivx: -sitGame.buyIn
+            pivx: -TournamentGame.buyIn
           }
         },
         { new: true }
@@ -1468,191 +1472,191 @@ module.exports = (io, socket, sitGames) => {
     } catch (e) {
       console.log(e);
     }
-    sitGame.players.push(player);
+    TournamentGame.players.push(player);
 
     io.emit('sit:lobby', {
-      sitGames: filterTableForLobby(sitGames)
+      TournamentGames: filterTableForLobby(TournamentGames)
     });
-    socket.to(sitGame.roomId).emit('sit:join', {
-      sitGame: filterTableToShow(sitGame, null)
+    socket.to(TournamentGame.roomId).emit('sit:join', {
+      TournamentGame: filterTableToShow(TournamentGame, null)
     });
-    const data = filterTableToShow(sitGame, socket);
+    const data = filterTableToShow(TournamentGame, socket);
 
     callback({
-      sitGame: data,
+      TournamentGame: data,
       status: true, 
       pivx:socket.user.pivx
     });
 
-    if (sitGame.players.length == sitGame.tableSize) {
+    if (TournamentGame.players.length == TournamentGame.tableSize) {
       //game start
-      if (!sitGame.playing) {
-        sitGame.playing = true;
-        console.log(sitGames);
+      if (!TournamentGame.playing) {
+        TournamentGame.playing = true;
+        console.log(TournamentGames);
         io.emit('sit:lobby', {
-          sitGames: filterTableForLobby(sitGames)
+          TournamentGames: filterTableForLobby(TournamentGames)
         });
         //game start
-        sitGame.ready = 2;
-        clearTimeout(sitGame.playTimeOut);
-        setTimeout(prepareSitGame, 1000, sitGame);
+        TournamentGame.ready = 2;
+        clearTimeout(TournamentGame.playTimeOut);
+        setTimeout(prepareTournamentGame, 1000, TournamentGame);
       }
     }
   };
 
   const betGame = async (roomId, bet) => {
-    const sitGame = sitGames.find((ele) => ele.id == roomId);
-    if (!sitGame) {
+    const TournamentGame = TournamentGames.find((ele) => ele.id == roomId);
+    if (!TournamentGame) {
       return;
     }
-    const position = sitGame.players.findIndex(
+    const position = TournamentGame.players.findIndex(
       (ele) => ele != null && ele.user.id == socket.user.id
     );
-    const player = sitGame.players[position];
+    const player = TournamentGame.players[position];
     clearTimeout(player.playTimeOut);
     player.playTimeOut = null;
     let raise = false,betStatus=false,
       call = false;
     if (player.turn && !player.stand && !player.fold && !player.allIn) {
       if (bet.status == 'fold') {
-        sitGame.pot += player.bet;
+        TournamentGame.pot += player.bet;
         player.totalBet += player.bet;
         player.bet = 0;
 
         player.fold = true;
       } else if (bet.status == 'allIn') {
-        if (sitGame.allowedBet.status == 'allIn_no') {
-          player.balance -= Math.floor(sitGame.allowedBet.maxRaise - player.bet);
-          player.bet = sitGame.allowedBet.maxRaise;
-          sitGame.bet = sitGame.bet < player.bet ? player.bet : sitGame.bet;
+        if (TournamentGame.allowedBet.status == 'allIn_no') {
+          player.balance -= Math.floor(TournamentGame.allowedBet.maxRaise - player.bet);
+          player.bet = TournamentGame.allowedBet.maxRaise;
+          TournamentGame.bet = TournamentGame.bet < player.bet ? player.bet : TournamentGame.bet;
           raise = true;
         } else {
           player.allIn = true;
           player.bet += player.balance;
           player.balance = 0;
-          if (!sitGame.limit)
-            sitGame.raise =
-              sitGame.raise < player.bet - sitGame.bet ? player.bet - sitGame.bet : sitGame.raise;
-          sitGame.bet = sitGame.bet < player.bet ? player.bet : sitGame.bet;
+          if (!TournamentGame.limit)
+            TournamentGame.raise =
+              TournamentGame.raise < player.bet - TournamentGame.bet ? player.bet - TournamentGame.bet : TournamentGame.raise;
+          TournamentGame.bet = TournamentGame.bet < player.bet ? player.bet : TournamentGame.bet;
         }
       } else {
         if (bet.amount >= player.bet + player.balance) {
-          if (sitGame.allowedBet.status == 'allIn_no') {
+          if (TournamentGame.allowedBet.status == 'allIn_no') {
             raise = true;
-            player.balance -= Math.floor(sitGame.allowedBet.maxRaise - player.bet);
-            player.bet = sitGame.allowedBet.maxRaise;
-            sitGame.bet = sitGame.bet < player.bet ? player.bet : sitGame.bet;
+            player.balance -= Math.floor(TournamentGame.allowedBet.maxRaise - player.bet);
+            player.bet = TournamentGame.allowedBet.maxRaise;
+            TournamentGame.bet = TournamentGame.bet < player.bet ? player.bet : TournamentGame.bet;
           } else {
             player.allIn = true;
             player.bet += player.balance;
             player.balance = 0;
 
-            if (!sitGame.limit)
-              sitGame.raise =
-                sitGame.raise < player.bet - sitGame.bet ? player.bet - sitGame.bet : sitGame.raise;
-            sitGame.bet = sitGame.bet < player.bet ? player.bet : sitGame.bet;
+            if (!TournamentGame.limit)
+              TournamentGame.raise =
+                TournamentGame.raise < player.bet - TournamentGame.bet ? player.bet - TournamentGame.bet : TournamentGame.raise;
+            TournamentGame.bet = TournamentGame.bet < player.bet ? player.bet : TournamentGame.bet;
           }
-        } else if (bet.amount < sitGame.bet) {
-          sitGame.pot += player.bet;
+        } else if (bet.amount < TournamentGame.bet) {
+          TournamentGame.pot += player.bet;
           player.totalBet = player.bet;
           player.bet = 0;
           player.fold = true;
-        } else if (bet.amount == sitGame.bet) {
-          if (sitGame.bet > player.bet) call = true;
-          player.balance -= Math.floor(sitGame.bet - player.bet);
-          player.bet = sitGame.bet;
+        } else if (bet.amount == TournamentGame.bet) {
+          if (TournamentGame.bet > player.bet) call = true;
+          player.balance -= Math.floor(TournamentGame.bet - player.bet);
+          player.bet = TournamentGame.bet;
         } else {
-          if (bet.amount < sitGame.allowedBet.minRaise) {
-            if (sitGame.bet > player.bet) call = true;
-            player.balance -= Math.floor(sitGame.bet - player.bet);
-            player.bet = sitGame.bet;
-          } else if (bet.amount > sitGame.allowedBet.maxRaise) {
+          if (bet.amount < TournamentGame.allowedBet.minRaise) {
+            if (TournamentGame.bet > player.bet) call = true;
+            player.balance -= Math.floor(TournamentGame.bet - player.bet);
+            player.bet = TournamentGame.bet;
+          } else if (bet.amount > TournamentGame.allowedBet.maxRaise) {
             raise = true;
-            bet.amount = sitGame.allowedBet.maxRaise;
+            bet.amount = TournamentGame.allowedBet.maxRaise;
             player.balance -= Math.floor(bet.amount - player.bet);
             player.bet = bet.amount;
-            if (!sitGame.limit)
-              sitGame.raise =
-                sitGame.raise < player.bet - sitGame.bet ? player.bet - sitGame.bet : sitGame.raise;
-            sitGame.bet = sitGame.bet < player.bet ? player.bet : sitGame.bet;
+            if (!TournamentGame.limit)
+              TournamentGame.raise =
+                TournamentGame.raise < player.bet - TournamentGame.bet ? player.bet - TournamentGame.bet : TournamentGame.raise;
+            TournamentGame.bet = TournamentGame.bet < player.bet ? player.bet : TournamentGame.bet;
           } else {
-            if(sitGame.bet==0 && player.bet==0){
+            if(TournamentGame.bet==0 && player.bet==0){
               betStatus=true;
             }else
               raise = true;
             player.balance -= Math.floor(bet.amount - player.bet);
             player.bet = bet.amount;
-            if (!sitGame.limit)
-              sitGame.raise =
-                sitGame.raise < player.bet - sitGame.bet ? player.bet - sitGame.bet : sitGame.raise;
-            sitGame.bet = sitGame.bet < player.bet ? player.bet : sitGame.bet;
+            if (!TournamentGame.limit)
+              TournamentGame.raise =
+                TournamentGame.raise < player.bet - TournamentGame.bet ? player.bet - TournamentGame.bet : TournamentGame.raise;
+            TournamentGame.bet = TournamentGame.bet < player.bet ? player.bet : TournamentGame.bet;
           }
         }
       }
-      io.to(sitGame.roomId).emit('sit:bet', {
+      io.to(TournamentGame.roomId).emit('sit:bet', {
         position,
         bet: player.bet,
         balance: player.balance,
         fold: player.fold,
         allIn: player.allIn,
         stand: player.stand,
-        pot: sitGame.pot,
+        pot: TournamentGame.pot,
         raise,
         call,
         betStatus
       });
-      if (sitGame.players.filter((ele) => ele != null && !ele.fold && !ele.stand).length < 2) {
+      if (TournamentGame.players.filter((ele) => ele != null && !ele.fold && !ele.stand).length < 2) {
         console.log('after bet, end Game');
-        endGame(sitGame);
+        endGame(TournamentGame);
       } else {
         console.log('after bet, next turn');
-        nextTurn(sitGame, position);
+        nextTurn(TournamentGame, position);
       }
     }
   };
 
   const behaviorGame = async (roomId, behavior, callback) => {
-    const sitGame = sitGames.find((ele) => ele.id == roomId);
-    if (!sitGame) {
+    const TournamentGame = TournamentGames.find((ele) => ele.id == roomId);
+    if (!TournamentGame) {
       return;
     }
-    const player = sitGame.players.find((ele) => ele != null && ele.user.id == socket.user.id);
+    const player = TournamentGame.players.find((ele) => ele != null && ele.user.id == socket.user.id);
     player.behavior = behavior;
     callback(behavior);
   };
 
   const standGame = async (roomId, callback) => {
-    const sitGame = sitGames.find((ele) => ele.id == roomId);
-    if (!sitGame) {
+    const TournamentGame = TournamentGames.find((ele) => ele.id == roomId);
+    if (!TournamentGame) {
       return;
     }
-    const position = sitGame.players.findIndex(
+    const position = TournamentGame.players.findIndex(
       (ele) => ele != null && ele.user.id == socket.user.id
     );
     if (position > -1) {
-      const player = sitGame.players[position];
+      const player = TournamentGame.players[position];
       player.stand = !player.stand;
       if (player.stand) {
         const turn = player.turn;
         player.turn = false;
         player.cards = null;
-        sitGame.pot += player.bet;
+        TournamentGame.pot += player.bet;
         player.bet = 0;
         player.totalBet = 0;
-        socket.to(sitGame.roomId).emit('sit:stand', {
+        socket.to(TournamentGame.roomId).emit('sit:stand', {
           position
         });
         callback(true);
-        // if (sitGame.players.filter((ele) => ele != null && !ele.stand && !ele.fold).length < 2) {
-        //   endGame(sitGame);
+        // if (TournamentGame.players.filter((ele) => ele != null && !ele.stand && !ele.fold).length < 2) {
+        //   endGame(TournamentGame);
         //   return;
         // }
         if (turn) {
           clearTimeout(player.playTimeOut);
-          nextTurn(sitGame, position);
+          nextTurn(TournamentGame, position);
         }
       } else {
-        socket.to(sitGame.roomId).emit('sit:sit', {
+        socket.to(TournamentGame.roomId).emit('sit:sit', {
           position
         });
         callback(player.stand);
@@ -1661,30 +1665,30 @@ module.exports = (io, socket, sitGames) => {
   };
 
   const leaveGame = async (roomId, callback) => {
-    const sitGame = sitGames.find((ele) => ele.id == roomId);
-    if (!sitGame) {
+    const TournamentGame = TournamentGames.find((ele) => ele.id == roomId);
+    if (!TournamentGame) {
       return;
     }
-    const position = sitGame.players.findIndex(
+    const position = TournamentGame.players.findIndex(
       (ele) => ele != null && ele.user.id == socket.user.id
     );
     if (position > -1) {
-      let player = sitGame.players[position];
+      let player = TournamentGame.players[position];
       const turn = player.turn;
 
-      sitGame.pot += player.bet;
+      TournamentGame.pot += player.bet;
 
-      sitGame.players[position] = null;
-      socket.to(sitGame.roomId).emit('sit:leave', {
+      TournamentGame.players[position] = null;
+      socket.to(TournamentGame.roomId).emit('sit:leave', {
         position
       });
       io.emit('sit:lobby', {
-        sitGames: filterTableForLobby(sitGames)
+        TournamentGames: filterTableForLobby(TournamentGames)
       });
       callback(true);
       if (turn) {
         clearTimeout(player.playTimeOut);
-        nextTurn(sitGame, position);
+        nextTurn(TournamentGame, position);
       }
     }
   };
